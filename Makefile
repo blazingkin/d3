@@ -4,9 +4,9 @@ CFLAGS=-g
 OBJS=bin/demand_pager.o
 
 
-all: bin/demand_pager.a
+all: bin/d3.a
 
-bin/demand_pager.a: $(OBJS)
+bin/d3.a: $(OBJS)
 	ar rcs $@ $^
 
 bin/%.o: src/%.c

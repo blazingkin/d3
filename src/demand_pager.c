@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <stdint.h>
 
 #define GB (0x1000ull << 18)
 // Map 48GB into the process. Hope nothing else is there...
@@ -19,12 +20,18 @@ static int  backing_file = 0;
 void *d3_initialize(char *backing_store) {
 
     // Open the backing file, or create it if it doesn't exist
-    backing_file = open(backing_store, O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
-
+    backing_file = open(backing_store, O_CREAT|O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+    if (backing_file <= 0) {
+        perror("backing file");
+        assert(backing_file > 0);
+    }
     // We assume the system is using 4k pages
     assert(sysconf(_SC_PAGESIZE) == 0x1000);
 
-    assert(mmap(BASE_ADDRESS, GB, PROT_READ|PROT_WRITE, MAP_FIXED, backing_file, 0) == BASE_ADDRESS);
+    if (mmap(BASE_ADDRESS, GB, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_FIXED, backing_file, 0) != BASE_ADDRESS) {
+        perror("MMAP");
+        assert(false);
+    }
 
     
     initialized = true;
