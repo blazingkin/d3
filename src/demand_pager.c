@@ -15,8 +15,9 @@
 // Map 48GB into the process. Hope nothing else is there...
 #define BASE_ADDRESS ((void *) (48 * GB))
 
-static bool initialized  = false;
-static int  backing_file = 0;
+static bool   initialized  = false;
+static int    backing_file = 0;
+static size_t extents      = 0;
 void *d3_initialize(char *backing_store) {
 
     // Open the backing file, or create it if it doesn't exist
@@ -27,6 +28,10 @@ void *d3_initialize(char *backing_store) {
     }
     // We assume the system is using 4k pages
     assert(sysconf(_SC_PAGESIZE) == 0x1000);
+
+    struct stat the_stat = {0};
+    assert(fstat(backing_file, &the_stat) == 0);
+    extents = the_stat.st_size;
 
     if (mmap(BASE_ADDRESS, GB, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_FIXED, backing_file, 0) != BASE_ADDRESS) {
         perror("MMAP");
@@ -44,7 +49,19 @@ void *persist_alloc(size_t size) {
         assert(initialized);
     }
 
+    void *result =  (void *) (BASE_ADDRESS + extents);
+    extents += size;
+    assert(ftruncate(backing_file, extents) == 0);
+    return result;
+}
 
+bool d3_any_allocated(void) {
+    if (!initialized) {
+        fprintf(stderr, "persist_alloc called before d3_initialize");
+        assert(initialized);
+    }
+
+    return extents != 0;
 }
 
 void d3_sync(void) {
